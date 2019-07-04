@@ -19,7 +19,7 @@ package base64Captcha
 import (
 	"encoding/base64"
 	"fmt"
-	"github.com/mojocn/base64Captcha/store"
+	"github.com/kpaas-io/base64Captcha/store"
 	"io"
 	"log"
 	"os"

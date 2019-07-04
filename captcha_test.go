@@ -3,7 +3,7 @@ package base64Captcha
 import (
 	"fmt"
 	"github.com/go-redis/redis"
-	"github.com/mojocn/base64Captcha/store"
+	"github.com/kpaas-io/base64Captcha/store"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"os"
