@@ -12,29 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package base64Captcha
+package store
 
 import (
 	"container/list"
 	"sync"
 	"time"
 )
-
-// Store An object implementing Store interface can be registered with SetCustomStore
-// function to handle storage and retrieval of captcha ids and solutions for
-// them, replacing the default memory store.
-//
-// It is the responsibility of an object to delete expired and used captchas
-// when necessary (for example, the default memory store collects them in Set
-// method after the certain amount of captchas has been stored.)
-type Store interface {
-	// Set sets the digits for the captcha id.
-	Set(id string, value string)
-
-	// Get returns stored digits for the captcha id. Clear indicates
-	// whether the captcha must be deleted from the store.
-	Get(id string, clear bool) string
-}
 
 // expValue stores timestamp and id of captchas. It is used in the list inside
 // memoryStore for indexing generated captchas by timestamp to enable garbage
@@ -69,7 +53,7 @@ func NewMemoryStore(collectNum int, expiration time.Duration) Store {
 	return s
 }
 
-func (s *memoryStore) Set(id string, value string) {
+func (s *memoryStore) Set(id string, value string) (err error) {
 	s.Lock()
 	s.digitsById[id] = value
 	s.idByTime.PushBack(idByTimeValue{time.Now(), id})
@@ -78,9 +62,10 @@ func (s *memoryStore) Set(id string, value string) {
 	if s.numStored > s.collectNum {
 		go s.collect()
 	}
+	return nil
 }
 
-func (s *memoryStore) Get(id string, clear bool) (value string) {
+func (s *memoryStore) Get(id string, clear bool) (value string, err error) {
 	if !clear {
 		// When we don't need to clear captcha, acquire read lock.
 		s.RLock()
@@ -103,19 +88,24 @@ func (s *memoryStore) collect() {
 	now := time.Now()
 	s.Lock()
 	defer s.Unlock()
-	s.numStored = 0
 	for e := s.idByTime.Front(); e != nil; {
-		ev, ok := e.Value.(idByTimeValue)
-		if !ok {
-			return
-		}
-		if ev.timestamp.Add(s.expiration).Before(now) {
-			delete(s.digitsById, ev.id)
-			next := e.Next()
-			s.idByTime.Remove(e)
-			e = next
-		} else {
-			return
-		}
+		e = s.collectOne(e, now)
 	}
+}
+
+func (s *memoryStore) collectOne(e *list.Element, specifyTime time.Time) *list.Element {
+
+	ev, ok := e.Value.(idByTimeValue)
+	if !ok {
+		return nil
+	}
+
+	if ev.timestamp.Add(s.expiration).Before(specifyTime) {
+		delete(s.digitsById, ev.id)
+		next := e.Next()
+		s.idByTime.Remove(e)
+		s.numStored--
+		return next
+	}
+	return nil
 }

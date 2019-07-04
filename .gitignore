@@ -5,3 +5,5 @@ examples/examples
 goTestOutPutPng/*
 ex
 .codecov
+coverage.*
+*.exe
